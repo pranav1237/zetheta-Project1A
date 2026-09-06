@@ -1,0 +1,107 @@
+ATTRIBUTE_DESCRIPTIONS = {
+    "Attribute1": "Checking account status",
+    "Attribute2": "Loan duration (months)",
+    "Attribute3": "Credit history",
+    "Attribute4": "Purpose",
+    "Attribute5": "Credit amount",
+    "Attribute6": "Savings account / bonds",
+    "Attribute7": "Present employment since",
+    "Attribute8": "Installment rate (% of disposable income)",
+    "Attribute9": "Personal status and sex",
+    "Attribute10": "Other debtors / guarantors",
+    "Attribute11": "Present residence since",
+    "Attribute12": "Property",
+    "Attribute13": "Age (years)",
+    "Attribute14": "Other installment plans",
+    "Attribute15": "Housing",
+    "Attribute16": "Number of existing credits",
+    "Attribute17": "Job",
+    "Attribute18": "Number of people liable for maintenance",
+    "Attribute19": "Telephone",
+    "Attribute20": "Foreign worker",
+}
+
+# Human-readable category meanings from the UCI Statlog German Credit
+# dataset documentation.
+CATEGORY_MAPPINGS = {
+    "Attribute1": {
+        "A11": "No checking account / below 0 DM",
+        "A12": "0 <= checking account < 200 DM",
+        "A13": "Checking account >= 200 DM",
+        "A14": "No checking account",
+    },
+    "Attribute3": {
+        "A30": "No credits taken / all credits paid back duly",
+        "A31": "All credits at this bank paid back duly",
+        "A32": "Existing credits paid back duly till now",
+        "A33": "Delay in paying off in the past",
+        "A34": "Critical account / other credits existing",
+    },
+    "Attribute4": {
+        "A40": "New car",
+        "A41": "Used car",
+        "A42": "Furniture / equipment",
+        "A43": "Radio / television",
+        "A44": "Domestic appliances",
+        "A45": "Repairs",
+        "A46": "Education",
+        "A48": "Retraining",
+        "A49": "Business",
+        "A410": "Other",
+    },
+    "Attribute6": {
+        "A61": "Less than 100 DM",
+        "A62": "100 <= savings < 500 DM",
+        "A63": "500 <= savings < 1000 DM",
+        "A64": ">= 1000 DM",
+        "A65": "Unknown / no savings account",
+    },
+    "Attribute7": {
+        "A71": "Unemployed",
+        "A72": "< 1 year",
+        "A73": "1 <= employment < 4 years",
+        "A74": "4 <= employment < 7 years",
+        "A75": ">= 7 years",
+    },
+    "Attribute9": {
+        "A91": "Male: divorced / separated",
+        "A92": "Female: divorced / separated / married",
+        "A93": "Male: single",
+        "A94": "Male: married / widowed",
+    },
+    "Attribute10": {
+        "A101": "None",
+        "A102": "Co-applicant",
+        "A103": "Guarantor",
+    },
+    "Attribute12": {
+        "A121": "Real estate",
+        "A122": "Building society savings agreement / life insurance",
+        "A123": "Car or other",
+        "A124": "Unknown / no property",
+    },
+    "Attribute14": {
+        "A141": "Bank",
+        "A142": "Stores",
+        "A143": "None",
+    },
+    "Attribute15": {
+        "A151": "Rent",
+        "A152": "Own",
+        "A153": "For free",
+    },
+    "Attribute17": {
+        "A171": "Unskilled / non-resident",
+        "A172": "Unskilled / resident",
+        "A173": "Skilled employee / official",
+        "A174": "Management / self-employed / highly qualified",
+    },
+    "Attribute19": {
+        "A191": "None",
+        "A192": "Yes",
+    },
+    "Attribute20": {
+        "A201": "Yes",
+        "A202": "No",
+    },
+}

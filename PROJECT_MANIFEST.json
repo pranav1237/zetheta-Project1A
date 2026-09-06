@@ -1,0 +1,24 @@
+{
+  "project": "Zetheta WorkBridge \u2014 Project 1A: Data Analyst Securitisation",
+  "status": "reproducible end-to-end pipeline, tested against real project data",
+  "data_source": "Project-supplied CSVs: auto_loan_securitisation_data.csv, dpd_snapshot_history.csv, dynamic_loss_monthly.csv, static_pool_vintage_data.csv",
+  "created": "2026-09-06",
+  "deliverables": {
+    "ecl_engine": "src/securitisation/ecl.py",
+    "waterfall_engine": "src/securitisation/waterfall.py",
+    "stress_testing": "src/securitisation/stress_testing.py",
+    "investor_reporting": "src/securitisation/investor_reporting.py",
+    "pipeline": "src/securitisation/run_pipeline.py",
+    "powerbi_data_model": "powerbi/data_model.md",
+    "powerbi_dax_measures": "powerbi/dax_measures.dax",
+    "risk_arena_simulator": "risk_arena/index.html",
+    "crisis_case_studies": "docs/securitisation/crisis_case_studies.md",
+    "tests": "tests/test_securitisation.py"
+  },
+  "related_prior_project": {
+    "name": "Retail Credit Risk Decisioning & Early-Warning Prototype",
+    "location": "docs/retail-credit-scoring/",
+    "note": "Unrelated earlier Zetheta project retained in this repo for its own record; not part of Project 1A."
+  },
+  "note": "All ECL/waterfall/stress outputs are a project-level analytical exercise; not a production or regulator-reviewed model. Run `python -m src.securitisation.run_pipeline` to regenerate artifacts/securitisation/ from the committed raw data."
+}

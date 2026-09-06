@@ -1,0 +1,22 @@
+{
+  "checking_status": "A14",
+  "duration": 12,
+  "credit_history": "A34",
+  "purpose": "A43",
+  "credit_amount": 2500,
+  "savings_status": "A65",
+  "employment": "A73",
+  "installment_rate": 2,
+  "personal_status": "A93",
+  "other_parties": "A101",
+  "residence_since": 2,
+  "property": "A121",
+  "age": 35,
+  "other_payment_plans": "A143",
+  "housing": "A152",
+  "existing_credits": 1,
+  "job": "A173",
+  "num_dependents": 1,
+  "telephone": "A191",
+  "foreign_worker": "A201"
+}

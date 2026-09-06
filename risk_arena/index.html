@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zetheta Securitisation Risk Arena</title>
+<style>
+  :root {
+    --bg: #0b1220; --panel: #121a2b; --border: #223049; --text: #e6edf7;
+    --muted: #8ea0bd; --accent: #4fd1c5; --warn: #f2b134; --danger: #f2545b; --good: #59d18f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: radial-gradient(circle at top, #142238, var(--bg));
+    color: var(--text); min-height: 100vh; padding: 32px 16px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); margin-top: 0; margin-bottom: 24px; font-size: 0.95rem; }
+  .grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 20px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px 22px;
+  }
+  .panel h2 { font-size: 1rem; margin-top: 0; color: var(--accent); letter-spacing: 0.02em; }
+  .row { margin-bottom: 18px; }
+  label { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; }
+  label span.val { color: var(--text); font-weight: 600; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  .presets button {
+    background: #1a2740; border: 1px solid var(--border); color: var(--text);
+    padding: 7px 12px; border-radius: 8px; font-size: 0.78rem; cursor: pointer;
+  }
+  .presets button:hover { border-color: var(--accent); }
+  .score-ring {
+    width: 160px; height: 160px; border-radius: 50%; margin: 0 auto 12px;
+    display: flex; align-items: center; justify-content: center; flex-direction: column;
+    border: 10px solid var(--border); position: relative;
+  }
+  .score-ring .num { font-size: 2rem; font-weight: 700; }
+  .score-ring .lbl { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .verdict { text-align: center; font-weight: 700; font-size: 1.05rem; margin-bottom: 18px; }
+  .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+  .kpi { background: #0e1728; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .kpi .k { font-size: 0.72rem; color: var(--muted); }
+  .kpi .v { font-size: 1.05rem; font-weight: 700; margin-top: 2px; }
+  .barwrap { background: #0e1728; border-radius: 8px; height: 8px; overflow: hidden; margin-top: 6px; }
+  .bar { height: 100%; border-radius: 8px; transition: width 0.25s ease; }
+  footer { color: var(--muted); font-size: 0.75rem; margin-top: 24px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Securitisation Risk Arena</h1>
+  <p class="subtitle">Structure a note, stress it against a real crisis playbook, and see whether your subordinate tranche survives. Project 1A &mdash; Zetheta WorkBridge.</p>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>STRUCTURE THE DEAL</h2>
+
+      <div class="presets">
+        <button onclick="applyPreset('base')">Base case (this pool)</button>
+        <button onclick="applyPreset('gfc2008')">2008 GFC-style shock</button>
+        <button onclick="applyPreset('covid2020')">COVID-19 payment shock</button>
+        <button onclick="applyPreset('conservative')">Conservative structure</button>
+      </div>
+
+      <div class="row">
+        <label>Class A / Senior size <span class="val" id="seniorVal">84%</span></label>
+        <input type="range" id="senior" min="60" max="95" value="84" oninput="update()">
+      </div>
+      <div class="row">
+        <label>Reserve fund (% of pool) <span class="val" id="reserveVal">2.0%</span></label>
+        <input type="range" id="reserve" min="0" max="8" step="0.1" value="2.0" oninput="update()">
+      </div>
+      <div class="row">
+        <label>Stressed lifetime PD (annualised) <span class="val" id="pdVal">8.0%</span></label>
+        <input type="range" id="pdstress" min="1" max="45" step="0.5" value="8.0" oninput="update()">
+      </div>
+      <div class="row">
+        <label>Stressed LGD <span class="val" id="lgdVal">50%</span></label>
+        <input type="range" id="lgdstress" min="20" max="90" value="50" oninput="update()">
+      </div>
+      <div class="row">
+        <label>Prepayment / CPR shock <span class="val" id="cprVal">100% of base</span></label>
+        <input type="range" id="cpr" min="40" max="130" value="100" oninput="update()">
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>STRUCTURE SCORECARD</h2>
+      <div class="score-ring" id="ring">
+        <div class="num" id="scoreNum">--</div>
+        <div class="lbl">Resilience score</div>
+      </div>
+      <div class="verdict" id="verdict">--</div>
+
+      <div class="kpis">
+        <div class="kpi">
+          <div class="k">Subordination beneath Senior</div>
+          <div class="v" id="subPct">--</div>
+        </div>
+        <div class="kpi">
+          <div class="k">Implied loss coverage multiple</div>
+          <div class="v" id="coverageMult">--</div>
+        </div>
+        <div class="kpi">
+          <div class="k">Class C (equity) survives?</div>
+          <div class="v" id="classCStatus">--</div>
+        </div>
+        <div class="kpi">
+          <div class="k">Excess spread after stress</div>
+          <div class="v" id="excessSpread">--</div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:6px;">
+        <label>Investor protection <span class="val" id="protectionVal">--</span></label>
+        <div class="barwrap"><div class="bar" id="protectionBar" style="background:var(--good)"></div></div>
+      </div>
+      <div class="row" style="margin-bottom:6px;">
+        <label>Yield given up for safety <span class="val" id="yieldVal">--</span></label>
+        <div class="barwrap"><div class="bar" id="yieldBar" style="background:var(--warn)"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Scoring is a project-level heuristic (protection from structure, yield opportunity cost,
+    and stressed-loss coverage), not a rating-agency methodology. It is designed to make the
+    trade-off tangible: more credit enhancement and reserve improve resilience under stress but
+    reduce the coupon a junior investor earns in the base case. See
+    <code>docs/securitisation/crisis_case_studies.md</code> for the historical scenarios behind
+    each preset, and <code>src/securitisation/stress_testing.py</code> for the equivalent
+    calculation run against the real loan-level pool.
+  </footer>
+</div>
+
+<script>
+const els = {
+  senior: document.getElementById('senior'),
+  reserve: document.getElementById('reserve'),
+  pdstress: document.getElementById('pdstress'),
+  lgdstress: document.getElementById('lgdstress'),
+  cpr: document.getElementById('cpr'),
+};
+
+const PRESETS = {
+  base:         { senior: 84, reserve: 2.0, pdstress: 8.0,  lgdstress: 50, cpr: 100 },
+  // 2008-style: severe, correlated default spike + collateral value collapse (LGD up)
+  gfc2008:      { senior: 84, reserve: 2.0, pdstress: 24.0, lgdstress: 72, cpr: 60  },
+  // COVID-19: income-shock driven delinquency spike, moderate LGD, prepayments dry up
+  covid2020:    { senior: 84, reserve: 2.0, pdstress: 15.0, lgdstress: 55, cpr: 55  },
+  conservative: { senior: 78, reserve: 4.5, pdstress: 8.0,  lgdstress: 50, cpr: 100 },
+};
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  Object.keys(p).forEach(k => els[k].value = p[k]);
+  update();
+}
+
+function update() {
+  const senior = Number(els.senior.value) / 100;      // 0.60 - 0.95
+  const reserve = Number(els.reserve.value) / 100;     // 0.00 - 0.08
+  const pdStress = Number(els.pdstress.value) / 100;   // 0.01 - 0.45
+  const lgdStress = Number(els.lgdstress.value) / 100; // 0.20 - 0.90
+  const cprMultiple = Number(els.cpr.value) / 100;     // 0.40 - 1.30
+
+  document.getElementById('seniorVal').textContent = (senior * 100).toFixed(0) + '%';
+  document.getElementById('reserveVal').textContent = (reserve * 100).toFixed(1) + '%';
+  document.getElementById('pdVal').textContent = (pdStress * 100).toFixed(1) + '%';
+  document.getElementById('lgdVal').textContent = (lgdStress * 100).toFixed(0) + '%';
+  document.getElementById('cprVal').textContent = (cprMultiple * 100).toFixed(0) + '% of base';
+
+  const subordination = 1 - senior;               // Mezz + Sub as % of pool
+  const stressedLoss = pdStress * lgdStress;       // stressed expected loss rate on the pool
+  const coverage = (subordination + reserve) / Math.max(stressedLoss, 0.0001);
+  const classCSurvives = coverage >= 1.15;         // needs meaningful buffer, not just breakeven
+
+  const protection = Math.min(100, 55 * subordination * 100 / 16 + 45 * reserve * 100 / 8);
+  const yieldGiveUp = Math.min(100, 70 * subordination * 100 / 40 + 30 * reserve * 100 / 8);
+  const resilience = Math.min(100, 100 * coverage / 2.2);
+  const score = Math.max(0, Math.min(100,
+    0.45 * resilience + 0.30 * protection - 0.25 * yieldGiveUp + (classCSurvives ? 8 : -12)
+  ));
+
+  document.getElementById('scoreNum').textContent = score.toFixed(0);
+  const ring = document.getElementById('ring');
+  const ringColor = score >= 70 ? 'var(--good)' : score >= 45 ? 'var(--warn)' : 'var(--danger)';
+  ring.style.borderColor = ringColor;
+
+  const verdict = document.getElementById('verdict');
+  if (score >= 70) { verdict.textContent = 'Resilient structure'; verdict.style.color = 'var(--good)'; }
+  else if (score >= 45) { verdict.textContent = 'Marginal -- review enhancement'; verdict.style.color = 'var(--warn)'; }
+  else { verdict.textContent = 'High vulnerability under this scenario'; verdict.style.color = 'var(--danger)'; }
+
+  document.getElementById('subPct').textContent = (subordination * 100).toFixed(1) + '%';
+  document.getElementById('coverageMult').textContent = coverage.toFixed(2) + 'x';
+  document.getElementById('classCStatus').textContent = classCSurvives ? 'Yes' : 'Wiped out';
+  document.getElementById('classCStatus').style.color = classCSurvives ? 'var(--good)' : 'var(--danger)';
+  const excessSpread = Math.max(-5, 9.5 - (stressedLoss * 100));
+  document.getElementById('excessSpread').textContent = excessSpread.toFixed(1) + '%';
+
+  document.getElementById('protectionVal').textContent = protection.toFixed(0) + '/100';
+  document.getElementById('protectionBar').style.width = protection + '%';
+  document.getElementById('yieldVal').textContent = yieldGiveUp.toFixed(0) + '/100';
+  document.getElementById('yieldBar').style.width = yieldGiveUp + '%';
+}
+
+update();
+</script>
+</body>
+</html>

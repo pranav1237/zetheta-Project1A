@@ -1,0 +1,268 @@
+// ============================================================================
+// Zetheta Project 1A -- Securitisation Risk Dashboard
+// DAX measures targeting the star schema in powerbi/data_model.md
+// Tables: FactLoanPool, FactDPDSnapshot, FactMonthlyPerformance, FactVintage,
+//         FactWaterfall, DimTranche, DimScenario (disconnected)
+// ============================================================================
+
+// ----------------------------------------------------------------------------
+// 1. CORE PORTFOLIO MEASURES
+// ----------------------------------------------------------------------------
+Total EAD := SUM ( FactLoanPool[EAD] )
+
+Pool Original Balance := SUM ( FactLoanPool[OriginalLoanAmount] )
+
+Pool Current Balance := SUM ( FactLoanPool[CurrentBalance] )
+
+Weighted ECL :=
+SUMX (
+    FactLoanPool,
+    FactLoanPool[EAD]
+        * FactLoanPool[PD_Estimate]
+        * FactLoanPool[LGD_Estimate]
+)
+
+ECL Rate := DIVIDE ( [Weighted ECL], [Total EAD] )
+
+Booked ECL Provision := SUM ( FactLoanPool[ECL_Provision] )
+
+Model vs Booked ECL Delta := [Weighted ECL] - [Booked ECL Provision]
+
+Model vs Booked ECL Delta % := DIVIDE ( [Model vs Booked ECL Delta], [Booked ECL Provision] )
+
+Weighted Average Coupon :=
+DIVIDE (
+    SUMX ( FactLoanPool, FactLoanPool[CurrentBalance] * FactLoanPool[InterestRate] ),
+    [Pool Current Balance]
+)
+
+Weighted Average LTV (Current) :=
+DIVIDE (
+    SUMX ( FactLoanPool, FactLoanPool[CurrentBalance] * FactLoanPool[LTV_Current] ),
+    [Pool Current Balance]
+)
+
+Weighted Average CIBIL (Current) :=
+DIVIDE (
+    SUMX ( FactLoanPool, FactLoanPool[CurrentBalance] * FactLoanPool[CIBIL_Score_Current] ),
+    [Pool Current Balance]
+)
+
+// ----------------------------------------------------------------------------
+// 2. IFRS 9 STAGING MEASURES
+// ----------------------------------------------------------------------------
+Stage 1 ECL := CALCULATE ( [Weighted ECL], FactLoanPool[IFRS9_Stage] = 1 )
+Stage 2 ECL := CALCULATE ( [Weighted ECL], FactLoanPool[IFRS9_Stage] = 2 )
+Stage 3 ECL := CALCULATE ( [Weighted ECL], FactLoanPool[IFRS9_Stage] = 3 )
+
+Stage 2 Exposure % :=
+VAR Stage2EAD = CALCULATE ( [Total EAD], FactLoanPool[IFRS9_Stage] = 2 )
+RETURN
+    DIVIDE ( Stage2EAD, [Total EAD] )
+
+SICR Migration Count :=
+// Loans whose current CIBIL has fallen 50+ points vs. origination -- a proxy
+// "significant increase in credit risk" trigger, independent of DPD staging.
+CALCULATE (
+    DISTINCTCOUNT ( FactLoanPool[LoanID] ),
+    FILTER (
+        FactLoanPool,
+        FactLoanPool[CIBIL_Score_Origination] - FactLoanPool[CIBIL_Score_Current] >= 50
+    )
+)
+
+// ----------------------------------------------------------------------------
+// 3. DELINQUENCY / ROLL-RATE MEASURES (FactDPDSnapshot)
+// ----------------------------------------------------------------------------
+30+ DPD Rate (Loan Count) :=
+DIVIDE (
+    CALCULATE ( DISTINCTCOUNT ( FactLoanPool[LoanID] ), FactLoanPool[DelinquencyDays] >= 30 ),
+    DISTINCTCOUNT ( FactLoanPool[LoanID] )
+)
+
+90+ DPD Rate (Balance) :=
+DIVIDE (
+    CALCULATE ( [Pool Current Balance], FactLoanPool[DelinquencyDays] >= 90 ),
+    [Pool Current Balance]
+)
+
+Roll Rate 30 to 60 :=
+// Of loans that were 1-29 DPD last snapshot, what % rolled to 30-59 DPD this
+// snapshot -- a genuine transition-matrix measure off DPD_Bucket_Prior.
+VAR BaseCount =
+    CALCULATE (
+        DISTINCTCOUNT ( FactDPDSnapshot[LoanID] ),
+        FactDPDSnapshot[DPD_Bucket_Prior] = "1-29 DPD"
+    )
+VAR RolledCount =
+    CALCULATE (
+        DISTINCTCOUNT ( FactDPDSnapshot[LoanID] ),
+        FactDPDSnapshot[DPD_Bucket_Prior] = "1-29 DPD",
+        FactDPDSnapshot[DPD_Bucket] = "30-59 DPD"
+    )
+RETURN
+    DIVIDE ( RolledCount, BaseCount )
+
+Cure Rate :=
+DIVIDE (
+    CALCULATE ( DISTINCTCOUNT ( FactDPDSnapshot[LoanID] ), FactDPDSnapshot[CureFlag] = TRUE () ),
+    CALCULATE (
+        DISTINCTCOUNT ( FactDPDSnapshot[LoanID] ),
+        FactDPDSnapshot[DPD_Bucket_Prior] <> "Current"
+    )
+)
+
+RBI SMA-2 Exposure := CALCULATE ( SUM ( FactDPDSnapshot[CurrentBalance] ), FactDPDSnapshot[RBI_SMA_Class] = "SMA-2" )
+
+Consecutive Delinquency (Max Months) := MAXX ( FactDPDSnapshot, FactDPDSnapshot[ConsecutiveMonthsDelinquent] )
+
+// ----------------------------------------------------------------------------
+// 4. VINTAGE ANALYTICS (ALLEXCEPT + TOPN patterns)
+// ----------------------------------------------------------------------------
+Vintage Cumulative Net Loss Rate :=
+CALCULATE (
+    AVERAGE ( FactVintage[CumulativeNetLossRate] ),
+    FILTER (
+        FactVintage,
+        FactVintage[MonthsOnBook]
+            = CALCULATE ( MAX ( FactVintage[MonthsOnBook] ), ALLEXCEPT ( FactVintage, FactVintage[VintageID] ) )
+    )
+)
+
+Vintage Pool Factor (Latest) :=
+CALCULATE (
+    AVERAGE ( FactVintage[PoolFactor] ),
+    FILTER (
+        FactVintage,
+        FactVintage[MonthsOnBook]
+            = CALCULATE ( MAX ( FactVintage[MonthsOnBook] ), ALLEXCEPT ( FactVintage, FactVintage[VintageID] ) )
+    )
+)
+
+Worst Performing Vintage :=
+// RANKX-driven scorecard tile: the vintage with the highest latest cumulative
+// net loss rate.
+VAR VintageRanking =
+    ADDCOLUMNS (
+        VALUES ( FactVintage[VintageID] ),
+        "@LossRate", [Vintage Cumulative Net Loss Rate]
+    )
+RETURN
+    MAXX ( TOPN ( 1, VintageRanking, [@LossRate], DESC ), FactVintage[VintageID] )
+
+// ----------------------------------------------------------------------------
+// 5. POOL-LEVEL PERFORMANCE / CASH-FLOW MEASURES (FactMonthlyPerformance)
+// ----------------------------------------------------------------------------
+Monthly Collection Efficiency := AVERAGE ( FactMonthlyPerformance[CollectionEfficiency] )
+
+CPR (Annualised) := AVERAGE ( FactMonthlyPerformance[CPR_Annualised] )
+
+3-Month Rolling Net Loss Rate :=
+VAR LatestDate = MAX ( FactMonthlyPerformance[ReportingDate] )
+VAR WindowStart = EDATE ( LatestDate, -2 )
+RETURN
+    CALCULATE (
+        AVERAGE ( FactMonthlyPerformance[MonthlyNetLossRate] ),
+        FactMonthlyPerformance[ReportingDate] >= WindowStart
+            && FactMonthlyPerformance[ReportingDate] <= LatestDate
+    )
+
+Excess Spread (Monthly) := SUM ( FactMonthlyPerformance[ExcessSpread_Monthly] )
+
+Excess Spread Trapping Trigger :=
+// Traffic-light KPI: 1 if the 3-month average net loss rate has breached a
+// documented trigger level (see docs/securitisation/investor_reporting.md).
+IF ( [3-Month Rolling Net Loss Rate] > 0.02, 1, 0 )
+
+MoM Excess Spread Change :=
+VAR CurrentMonth = [Excess Spread (Monthly)]
+VAR PriorMonth =
+    CALCULATE (
+        [Excess Spread (Monthly)],
+        DATEADD ( FactMonthlyPerformance[ReportingDate], -1, MONTH )
+    )
+RETURN
+    CurrentMonth - PriorMonth
+
+// ----------------------------------------------------------------------------
+// 6. WATERFALL / TRANCHE MEASURES (FactWaterfall + DimTranche)
+// ----------------------------------------------------------------------------
+Class A Senior Ending Balance := SUM ( FactWaterfall[Class_A_Senior_ending_balance] )
+Class B Mezzanine Ending Balance := SUM ( FactWaterfall[Class_B_Mezzanine_ending_balance] )
+Class C Subordinate Ending Balance := SUM ( FactWaterfall[Class_C_Subordinate_ending_balance] )
+
+Residual to Equity (Cumulative) := SUM ( FactWaterfall[residual_to_equity] )
+
+Credit Enhancement % :=
+// Subordination beneath Class A as a % of the original pool balance.
+DIVIDE (
+    CALCULATE ( SUM ( DimTranche[subordination_balance] ), DimTranche[tranche] = "Class_A_Senior" ),
+    [Pool Original Balance]
+)
+
+Class C Wipeout Flag := IF ( [Class C Subordinate Ending Balance] <= 1, 1, 0 )
+
+Senior Note Factor :=
+// Ending balance as a fraction of original -- what a Class A investor tracks
+// month to month.
+DIVIDE (
+    [Class A Senior Ending Balance],
+    CALCULATE ( SUM ( DimTranche[initial_balance] ), DimTranche[tranche] = "Class_A_Senior" )
+)
+
+// ----------------------------------------------------------------------------
+// 7. WHAT-IF STRESS SCENARIO
+//    DimScenario is a disconnected table (or Power BI What-If Parameter):
+//    Scenario (text) | PD_Multiplier | LGD_Multiplier
+// ----------------------------------------------------------------------------
+Selected Scenario := SELECTEDVALUE ( DimScenario[Scenario], "Base" )
+
+Selected PD Multiplier :=
+SWITCH (
+    TRUE (),
+    [Selected Scenario] = "Base", 1.00,
+    [Selected Scenario] = "Moderate stress", 1.50,
+    [Selected Scenario] = "Severe stress", 2.30,
+    1.00
+)
+
+Selected LGD Multiplier :=
+SWITCH (
+    TRUE (),
+    [Selected Scenario] = "Base", 1.00,
+    [Selected Scenario] = "Moderate stress", 1.15,
+    [Selected Scenario] = "Severe stress", 1.35,
+    1.00
+)
+
+Scenario Weighted ECL :=
+SUMX (
+    FactLoanPool,
+    FactLoanPool[EAD]
+        * MIN ( 1, FactLoanPool[PD_Estimate] * [Selected PD Multiplier] )
+        * MIN ( 1, FactLoanPool[LGD_Estimate] * [Selected LGD Multiplier] )
+)
+
+Scenario ECL Rate := DIVIDE ( [Scenario Weighted ECL], [Total EAD] )
+
+Scenario ECL Uplift vs Base :=
+VAR BaseECL =
+    SUMX ( FactLoanPool, FactLoanPool[EAD] * FactLoanPool[PD_Estimate] * FactLoanPool[LGD_Estimate] )
+RETURN
+    [Scenario Weighted ECL] - BaseECL
+
+// ----------------------------------------------------------------------------
+// 8. RANK / TOP-N MEASURES FOR INVESTOR SCORECARDS
+// ----------------------------------------------------------------------------
+State Risk Rank :=
+RANKX ( ALL ( FactLoanPool[State] ), CALCULATE ( [ECL Rate] ), , DESC )
+
+Servicer Delinquency Rank :=
+RANKX ( ALL ( FactLoanPool[ServicerName] ), CALCULATE ( [90+ DPD Rate (Balance)] ), , DESC )
+
+// Calculated column (not a measure) for a "Top 5 riskiest states" visual filter:
+// FactLoanPool[Is Top5 Risk State] =
+//     VAR RankedStates =
+//         ADDCOLUMNS ( ALL ( FactLoanPool[State] ), "@ECLRate", CALCULATE ( [ECL Rate] ) )
+//     VAR Top5 = TOPN ( 5, RankedStates, [@ECLRate], DESC )
+//     RETURN IF ( FactLoanPool[State] IN SELECTCOLUMNS ( Top5, "@S", FactLoanPool[State] ), 1, 0 )
